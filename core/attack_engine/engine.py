@@ -34,13 +34,14 @@ class AttackEngine:
         return loaded
 
     async def run(self) -> List[Dict[str, Any]]:
-        logger.info(f"Starting Attack Engine with {len(self.payloads)} base vectors")
+        evasion_level = settings.target.evasion_level
+        logger.info(f"Starting Attack Engine with {len(self.payloads)} base vectors | Evasion Level: {evasion_level}")
         
         async with aiohttp.ClientSession() as session:
             tasks = []
             for vector in self.payloads:
-                # Generate mutations
-                mutations = self.mutator.mutate(vector["payload"])
+                # Generate mutations based on configured evasion level
+                mutations = self.mutator.mutate(vector["payload"], level=evasion_level)
                 logger.info(f"Vector {vector['id']}: Generated {len(mutations)} mutations (Base: {vector['payload'][:20]}...)")
                 
                 for i, mutant in enumerate(mutations):
@@ -53,32 +54,43 @@ class AttackEngine:
         return self.results
 
     async def _send_attack(self, session: aiohttp.ClientSession, vector: Dict, payload: str, mutation_id: int) -> Dict[str, Any]:
-        target_url = settings.target.url
+        """
+        Sends a single attack request.
+        """
+        url = settings.target.url
         method = vector.get("method", "GET")
         location = vector.get("location", "query")
         
+        # Prepare params/body
         params = {}
-        data = {}
+        data = None
+        headers = settings.target.headers.copy() # Start with global custom headers
         
-        # Inject payload based on location
+        # Dynamically inject payload
         if location == "query":
-            params = {"q": payload} # Generic parameter
+            params = {"q": payload}
+        elif location == "header":
+            headers["X-Attack-Payload"] = payload
         elif location == "body":
             data = {"input": payload}
-        
-        headers = settings.target.headers.copy() if settings.target.headers else {}
-        headers["X-WBT-Vector"] = vector["id"]
-        
-        # Log attempt start
-        # logger.debug(f"Sending {vector['id']} [Mut:{mutation_id}] to {target_url}")
-        
-        try:
-            start_time = asyncio.get_event_loop().time()
-            async with session.request(method, target_url, params=params, data=data, headers=headers, timeout=settings.target.timeout) as response:
-                end_time = asyncio.get_event_loop().time()
-                content = await response.text()
+        elif location == "path":
+            if url.endswith("/"):
+                url += payload
+            else:
+                url += "/" + payload
                 
+        try:
+            async with session.request(
+                method, 
+                url, 
+                params=params, 
+                json=data, 
+                headers=headers, 
+                timeout=settings.target.timeout
+            ) as response:
                 status = response.status
+                text = await response.text()
+                
                 result_type = "BLOCKED" if status in [403, 406, 500] else "PASSED"
                 log_level = logger.warning if result_type == "PASSED" else logger.info
                 
@@ -86,17 +98,12 @@ class AttackEngine:
                 
                 return {
                     "vector_id": vector["id"],
+                    "mutation_id": mutation_id,
                     "category": vector["category"],
                     "payload": payload,
-                    "mutation_id": mutation_id,
                     "status": status,
-                    "headers": dict(response.headers),
-                    "latency": (end_time - start_time) * 1000,
-                    "timestamp": start_time
+                    "response_len": len(text)
                 }
         except Exception as e:
-            logger.error(f"Attack request failed for {vector['id']}: {e}")
-            return {
-                "vector_id": vector["id"],
-                "error": str(e)
-            }
+            logger.error(f"Attack failed {vector['id']}: {e}")
+            return {"vector_id": vector["id"], "error": str(e)}

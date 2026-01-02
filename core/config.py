@@ -1,12 +1,13 @@
 from pathlib import Path
 from typing import Any, Dict
 import yaml
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, Field
 
 class TargetConfig(BaseModel):
     url: str
     timeout: int = 10
     concurrency: int = 5
+    evasion_level: int = Field(0, ge=0, le=2) # 0=None, 1=Basic, 2=Advanced
     headers: Dict[str, str] = {}
 
 class WAFConfig(BaseModel):
@@ -27,14 +28,14 @@ class AppConfig:
             return yaml.safe_load(f) or {}
 
     def _load_target(self) -> TargetConfig:
-        data = self._load_yaml("target.yaml")
-        # Ensure we are passing the 'target' key content if it exists, otherwise the root dict
-        config_data = data.get("target", data)
-        return TargetConfig(**config_data)
+        data = self._load_yaml("target.yaml").get("target", {})
+        # Ensure url is present or default
+        if "url" not in data:
+            data["url"] = "http://waf_target:8080"
+        return TargetConfig(**data)
 
     def _load_waf(self) -> WAFConfig:
-        data = self._load_yaml("waf.yaml")
-        config_data = data.get("waf", data)
-        return WAFConfig(**config_data)
+        data = self._load_yaml("waf.yaml").get("waf", {})
+        return WAFConfig(**data)
 
 settings = AppConfig()

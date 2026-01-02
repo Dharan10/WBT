@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Save, Globe, Shield, RefreshCw } from 'lucide-react';
+import { Save, Globe, Shield, RefreshCw, Zap } from 'lucide-react';
 
 const Config = () => {
     const [targetConfig, setTargetConfig] = useState({
         url: '',
         concurrency: 10,
-        timeout: 5
+        timeout: 5,
+        evasion_level: 0
     });
 
     const [wafConfig, setWafConfig] = useState({
@@ -29,7 +30,10 @@ const Config = () => {
                 axios.get('/api/v1/config/target'),
                 axios.get('/api/v1/config/waf')
             ]);
-            setTargetConfig(targetRes.data);
+            setTargetConfig({
+                ...targetRes.data,
+                evasion_level: targetRes.data.evasion_level || 0 // Default to 0 if missing
+            });
             setWafConfig(wafRes.data);
         } catch (err) {
             console.error("Failed to load config", err);
@@ -40,7 +44,7 @@ const Config = () => {
     };
 
     const handleTargetChange = (e) => {
-        const value = e.target.type === 'number' ? parseInt(e.target.value) : e.target.value;
+        const value = e.target.type === 'number' || e.target.type === 'range' ? parseInt(e.target.value) : e.target.value;
         setTargetConfig({ ...targetConfig, [e.target.name]: value });
     };
 
@@ -77,6 +81,17 @@ const Config = () => {
             </div>
         );
     }
+
+    const getEvasionLabel = (level) => {
+        switch (level) {
+            case 0: return { label: 'None', desc: 'Raw payloads only', color: 'text-zinc-400' };
+            case 1: return { label: 'Basic', desc: 'URL Encoding, Case Switching', color: 'text-yellow-500' };
+            case 2: return { label: 'Advanced', desc: 'Double Encode, Comments, Whitespace', color: 'text-red-500' };
+            default: return { label: 'Unknown', desc: '', color: 'text-zinc-500' };
+        }
+    }
+
+    const evasionInfo = getEvasionLabel(targetConfig.evasion_level);
 
     return (
         <div className="max-w-4xl mx-auto space-y-6">
@@ -115,6 +130,35 @@ const Config = () => {
                                     className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all font-mono"
                                     placeholder="http://example.com"
                                 />
+                            </div>
+                        </div>
+
+                        {/* Evasion Slider */}
+                        <div className="space-y-4 p-4 bg-zinc-950/50 rounded-lg border border-zinc-800/50">
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    <Zap size={16} className={evasionInfo.color} />
+                                    <label className="text-sm font-medium text-zinc-300">Smart Evasion Level</label>
+                                </div>
+                                <div className="text-right">
+                                    <span className={`text-sm font-bold ${evasionInfo.color}`}>{evasionInfo.label}</span>
+                                    <p className="text-xs text-zinc-500">{evasionInfo.desc}</p>
+                                </div>
+                            </div>
+                            <input
+                                type="range"
+                                name="evasion_level"
+                                min="0"
+                                max="2"
+                                step="1"
+                                value={targetConfig.evasion_level}
+                                onChange={handleTargetChange}
+                                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                            <div className="flex justify-between text-[10px] text-zinc-600 uppercase font-bold tracking-wider">
+                                <span>None</span>
+                                <span>Basic</span>
+                                <span>Advanced</span>
                             </div>
                         </div>
 
