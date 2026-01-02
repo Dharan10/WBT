@@ -1,0 +1,4 @@
+target:
+  url: "http://waf_target:8080"
+  timeout: 10
+  concurrency: 5

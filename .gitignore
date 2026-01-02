@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.DS_Store
+logs/*.log
+logs/*.json
+reports/*.pdf
+reports/*.json
+.pytest_cache/
+.coverage
+htmlcov/
+site/

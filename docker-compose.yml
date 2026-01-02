@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  wbt_core:
+    build: .
+    container_name: wbt_core
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - ENVIRONMENT=development
+    networks:
+      - wbt_net
+    depends_on:
+      - waf_target
+
+  wbt_ui:
+    build: 
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: wbt_ui
+    ports:
+      - "3000:80"
+    networks:
+      - wbt_net
+    depends_on:
+      - wbt_core
+
+  waf_target:
+    image: owasp/modsecurity-crs:nginx
+    container_name: waf_target
+    ports:
+      - "8080:8080"
+    environment:
+      - PARANOIA=1
+      - ANOMALY_INBOUND=5
+      - ANOMALY_OUTBOUND=4
+      - PROXY=1
+      # Variable is BACKEND, not UPSTREAM. Must include protocol.
+      - BACKEND=http://vulnerable_app:80
+      - PORT=8080
+    networks:
+      - wbt_net
+    depends_on:
+      - vulnerable_app
+    restart: always
+
+  vulnerable_app:
+    image: traefik/whoami
+    container_name: vulnerable_app
+    networks:
+      - wbt_net
+
+networks:
+  wbt_net:
+    driver: bridge

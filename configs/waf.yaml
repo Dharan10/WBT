@@ -1,0 +1,12 @@
+waf:
+  adapter_type: "modsecurity"
+  host: "http://waf-host:80"
+  management_url: "http://waf-host:8080"
+  verify_ssl: false
+  auth:
+    username: ""
+    password: ""
+  logs:
+    enabled: true
+    path: "/var/log/modsec_audit.log"
+    format: "json"
